@@ -1,16 +1,17 @@
 from pathlib import Path
 from typing import List
+import subprocess
 
 from langchain_core.tools import tool
 
 EXCLUDED_DIRS = {
   ".git", "venv", ".venv", "env", "node_modules",
     "__pycache__", ".pytest_cache", "dist", "build",
-    ".next", ".idea", ".vscode", "site-packages",
+    ".next", ".idea", ".vscode", "site-packages", ".env"
 }
 
 @tool
-def list_files(path: str)-> str:
+def list_files(path: str)-> List[str]:
   """List all files in the repository, skipping dependency, build,
     and version-control folders (e.g. node_modules, .git, venv).
     Returns paths relative to the given directory, e.g. 'src/app.py'.
@@ -38,7 +39,7 @@ def read_file(path: str) -> str:
     need ground truth — e.g. the exact install command, an exact function
     signature, or precise usage syntax — rather than relying on a
     paraphrased summary from summarize_file, which may lose exact wording.
-    Returns an error message string if the file doesn't exist
+    Returns an error message string if the file doesn't exist.
   """
 
 
@@ -51,3 +52,19 @@ def read_file(path: str) -> str:
   except FileNotFoundError:
     content = "No file found at the given path"
     return content
+  
+
+@tool
+def get_git_diff(last_commit_id: str) ->List[str]:
+  """
+  Get the list of files that changed since the last time README was generated. Use this after the first run , instead of list_files, so you only investigate what actually changed rather than re-reading the whole repo."""
+
+  result = subprocess.run(
+    ["git", "diff", "--name-only", last_commit_id, "HEAD"],
+    capture_output=True,
+    text=True,
+  )
+
+  if result.stdout == "":
+    return []
+  return result.stdout.strip().split("\n")
