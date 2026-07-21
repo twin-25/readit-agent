@@ -68,3 +68,36 @@ def get_git_diff(last_commit_id: str) ->List[str]:
   if result.stdout == "":
     return []
   return result.stdout.strip().split("\n")
+
+
+def make_summarize_file(llm):
+  @tool
+  def summarize_file(path: str)->str:
+    """
+    Read a file and generate a short summary of what it does.
+    Use this to understand a file's purpose cheaply, without needing
+    to re-read its full content on future turns. The summary gets
+    cached, so you won't need to call this again for the same file
+    unless it changes.
+    """
+    content = read_file.invoke({"path": path})
+    prompt = f"""
+              You are analyzing a source file from a software project.
+              File path: {path}
+              Summarize the file in 2 to 3 concise sentences. Explain:
+              1. The file's main purpose within the project
+              2. Its primary responsibilities or the type of functionality it provides
+              3. How it contributes to the broader project, when that can be inferred
+              Keep the summary high-level. Do not describe exact syntax, individual function signatures, internal algorithms, imports, or line-by-line implementation details unless one detail is essential to understanding the file's purpose.
+              Use the file path as context, especially when the file is short or contains limited information. Do not invent functionality that cannot be supported by the path or content. If the file is empty or only performs package initialization, state that clearly.
+              Write in plain prose only — no markdown, no bullet points, no headers, no bold text.
+              File content:
+              ---
+              {content}
+              ---
+              Return only the summary.
+              """
+    response = llm.invoke(prompt)
+    return response.content
+
+  return summarize_file
