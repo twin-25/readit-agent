@@ -108,6 +108,14 @@ def commit_and_push():
 
 
 def is_safe_to_proceed():
+  """The safety-gate check. Called first, before create_branch, on
+    every run. Returns True if it's safe to proceed — either the branch
+    doesn't exist yet (first run) or its last commit was made by the
+    agent itself. Returns False if a human's name shows up as the last
+    author, meaning they pushed something to this branch since the
+    agent last touched it — in which case the whole run should back off
+    and not call create_branch or commit_and_push at all.
+  """
   result = subprocess.run(
     ["git", "log", "-1", "--format=%an", "readit-agent/update"],      capture_output=True,
     text=True,
