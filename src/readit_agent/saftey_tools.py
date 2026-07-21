@@ -10,10 +10,11 @@ to call based on its own reasoning.
 
 
 import json
+import subprocess
 from pathlib import Path
 
-from langchain_core.tools import tool
-
+AGENT_GIT_NAME = "readit-agent-bot"
+AGENT_GIT_EMAIL = "bot@readit-agent.dev"
 
 
 def save_summaries(summaries: dict, last_commit_id: str):
@@ -31,7 +32,92 @@ def save_summaries(summaries: dict, last_commit_id: str):
     json.dump(data, f)
 
 
+def create_branch():
+  """Create or switch to the agent's stable branch (readit-agent/update).
+    Uses -B, meaning the branch pointer moves to the current commit even
+    if it already existed. This is only safe to call after a separate
+    safety check confirms no human commit is sitting on that branch,
+    since -B would otherwise silently abandon it.
+    Returns True on success, False on failure — never raises.
+  """
+
+  result = subprocess.run(
+    ["git", "checkout", "-B", "readit-agent/update"],
+    capture_output=True,
+    text=True,
+  )
+
+  if result.returncode == 0:
+    return True
+  return False
 
 
+def commit_and_push():
+    
+    """Stage README.md and .readit-agent/summaries.json, commit, and push
+    to the readit-agent/update branch. Must be called after create_branch,
+    since it pushes to that specific branch by name.
+    Returns one of three strings:
+      "no_changes" — nothing differed from the last commit, not an error
+      "success"    — committed and pushed successfully
+      "error"      — a real failure at some step"""
+     
+
+    stage_result = subprocess.run(
+        ["git", "add", "README.md", ".readit-agent/summaries.json"],
+        capture_output=True,
+        text=True,
+    )
+
+    if stage_result.returncode != 0:
+        return "error"
+    
+
+    stage_check = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        capture_output=True,
+        text=True,
+    )
+
+    if stage_check.returncode == 0:
+        return "no_changes"
+    
+
+    subprocess.run(["git", "config", "--local", "user.name", AGENT_GIT_NAME], capture_output=True, text=True)
+    subprocess.run(["git", "config", "--local", "user.email", AGENT_GIT_EMAIL], capture_output=True, text=True)
+
+    commit_result = subprocess.run(
+        ["git", "commit", "-m", "Updated README and summaries by readit-agent"],
+        capture_output=True,
+        text=True,
+    )
+
+    if commit_result.returncode != 0:
+        return "error"
+
+    push_result = subprocess.run(
+        ["git", "push", "--force", "origin", "readit-agent/update"],
+        capture_output=True,
+        text=True,
+    )
+
+    if push_result.returncode != 0:
+        return "error"
+
+    return "success"
+
+
+def is_safe_to_proceed():
+  result = subprocess.run(
+    ["git", "log", "-1", "--format=%an", "readit-agent/update"],      capture_output=True,
+    text=True,
+   )
+
+  author = result.stdout.strip()
+
+  if author == AGENT_GIT_NAME or '':
+      return True
+   
+  return "Failure"
 
   
