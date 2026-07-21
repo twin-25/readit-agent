@@ -31,18 +31,7 @@ def save_summaries(summaries: dict, last_commit_id: str):
     json.dump(data, f)
 
 
-@tool
-def write_readme(content: str) -> str:
-  """
-  Write the given content to README.md. Call this once you've gathered
-  enough summaries and have generated the full README text yourself as
-  plain markdown. This is the last content-decision step — after this,
-  the actual git commit and pull request happen automatically.
-  """
-  with open("README.md", "w") as f:
-    f.write(content)
 
-  return "wrote the README successfully"
 
 
   
